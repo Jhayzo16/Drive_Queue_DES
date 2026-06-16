@@ -32,9 +32,13 @@ CAR_COLORS = {
 
 
 class DriveThruApp(tk.Tk):
+    # System branding configuration
+    SYSTEM_NAME = "DriveQueue"
+    SYSTEM_VERSION = "v1.0"
+    
     def __init__(self):
         super().__init__()
-        self.title("Drive-Thru Discrete Event Simulation")
+        self.title(f"{self.SYSTEM_NAME} - {self.SYSTEM_VERSION}")
         self.geometry("1180x760")
         self.minsize(1080, 700)
 
@@ -50,10 +54,26 @@ class DriveThruApp(tk.Tk):
     def _build_layout(self):
         self.columnconfigure(0, weight=0)
         self.columnconfigure(1, weight=1)
-        self.rowconfigure(0, weight=1)
+        self.rowconfigure(0, weight=0)
+        self.rowconfigure(1, weight=0)
+        self.rowconfigure(2, weight=1)
+
+        # Branding header
+        header = ttk.Frame(self, padding=10)
+        header.grid(row=0, column=0, columnspan=2, sticky="ew")
+        header.columnconfigure(1, weight=1)
+        
+        brand_title = ttk.Label(header, text=self.SYSTEM_NAME, font=("Segoe UI", 16, "bold"), foreground="#1e40af")
+        brand_title.grid(row=0, column=0, sticky="w", padx=4)
+        
+        brand_version = ttk.Label(header, text=self.SYSTEM_VERSION, font=("Segoe UI", 10), foreground="#6b7280")
+        brand_version.grid(row=0, column=1, sticky="e", padx=4)
+        
+        # Separator
+        ttk.Separator(self, orient="horizontal").grid(row=1, column=0, columnspan=2, sticky="ew")
 
         controls = ttk.Frame(self, padding=14)
-        controls.grid(row=0, column=0, sticky="ns")
+        controls.grid(row=2, column=0, sticky="ns")
 
         title = ttk.Label(controls, text="Service System Optimization", font=("Segoe UI", 14, "bold"))
         title.grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 8))
@@ -92,31 +112,48 @@ class DriveThruApp(tk.Tk):
         ttk.Label(controls, textvariable=self.summary_text, justify="left", wraplength=260).grid(
             row=16, column=0, columnspan=2, sticky="nw", pady=(16, 0)
         )
-
-        ttk.Label(controls, text="Generated Analysis", font=("Segoe UI", 11, "bold")).grid(
-            row=17, column=0, columnspan=2, sticky="w", pady=(16, 4)
-        )
-        self.analysis_box = tk.Text(controls, width=34, height=14, wrap="word", state="disabled")
-        self.analysis_box.grid(row=18, column=0, columnspan=2, sticky="nsew")
-        controls.rowconfigure(18, weight=1)
+        controls.rowconfigure(16, weight=1)
 
         main = ttk.Frame(self, padding=(0, 14, 14, 14))
-        main.grid(row=0, column=1, sticky="nsew")
+        main.grid(row=2, column=1, sticky="nsew")
         main.columnconfigure(0, weight=1)
+        main.columnconfigure(1, weight=1)
         main.rowconfigure(0, weight=1)
         main.rowconfigure(1, weight=0)
 
         self.canvas = tk.Canvas(main, bg="#f8fafc", highlightthickness=1, highlightbackground="#cbd5e1")
-        self.canvas.grid(row=0, column=0, sticky="nsew")
+        self.canvas.grid(row=0, column=0, columnspan=2, sticky="nsew")
 
-        log_frame = ttk.Frame(main)
-        log_frame.grid(row=1, column=0, sticky="ew", pady=(10, 0))
+        # Bottom section: Event log and Analysis side by side
+        bottom_frame = ttk.Frame(main)
+        bottom_frame.grid(row=1, column=0, columnspan=2, sticky="nsew", pady=(10, 0))
+        bottom_frame.columnconfigure(0, weight=1)
+        bottom_frame.columnconfigure(1, weight=1)
+        bottom_frame.rowconfigure(0, weight=1)
+
+        # Event log on the left
+        log_frame = ttk.LabelFrame(bottom_frame, text="Event Log", padding=4)
+        log_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
         log_frame.columnconfigure(0, weight=1)
-        self.event_log = tk.Text(log_frame, height=8, wrap="word", state="disabled")
-        self.event_log.grid(row=0, column=0, sticky="ew")
+        log_frame.rowconfigure(0, weight=1)
+        
+        self.event_log = tk.Text(log_frame, height=6, wrap="word", state="disabled")
+        self.event_log.grid(row=0, column=0, sticky="nsew")
         scrollbar = ttk.Scrollbar(log_frame, orient="vertical", command=self.event_log.yview)
         scrollbar.grid(row=0, column=1, sticky="ns")
         self.event_log.configure(yscrollcommand=scrollbar.set)
+
+        # Analysis box on the right
+        analysis_frame = ttk.LabelFrame(bottom_frame, text="Generated Analysis", padding=4)
+        analysis_frame.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
+        analysis_frame.columnconfigure(0, weight=1)
+        analysis_frame.rowconfigure(0, weight=1)
+        
+        self.analysis_box = tk.Text(analysis_frame, height=6, wrap="word", state="disabled")
+        self.analysis_box.grid(row=0, column=0, sticky="nsew")
+        analysis_scrollbar = ttk.Scrollbar(analysis_frame, orient="vertical", command=self.analysis_box.yview)
+        analysis_scrollbar.grid(row=0, column=1, sticky="ns")
+        self.analysis_box.configure(yscrollcommand=analysis_scrollbar.set)
 
     def _config_from_inputs(self) -> SimulationConfig:
         try:
