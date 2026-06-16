@@ -9,11 +9,11 @@ from drive_thru_model import SimulationConfig, SimulationResult, run_simulation
 STAGE_POSITIONS = {
     "queue": (100, 300),
     "waiting_order": (225, 300),
-    "order": (350, 210),
+    "order": (350, 245),
     "waiting_payment": (475, 300),
-    "payment": (600, 210),
-    "waiting_pickup": (725, 300),
-    "pickup": (850, 210),
+    "payment": (600, 245),
+    "waiting_pickup": (710, 300),
+    "pickup": (820, 245),
     "departed": (960, 300),
     "rejected": (960, 405),
 }
@@ -174,13 +174,26 @@ class DriveThruApp(tk.Tk):
             return
 
         event = self.result.events[self.event_index]
+        visible_vehicles = self._visible_vehicles()
         self._draw_static_scene()
-        self._draw_vehicles(event.active_vehicles)
+        self._draw_vehicles(visible_vehicles)
+        self._draw_lost_sale_count(visible_vehicles)
         self._draw_clock(event.time, event.queue_length)
         self._write_log(f"{event.time:6.1f} min | Vehicle {event.vehicle_id:03d} | {event.message}\n")
         self.event_index += 1
         delay = max(80, int(650 / self.speed.get()))
         self.after_id = self.after(delay, self._advance_event)
+
+    def _visible_vehicles(self) -> dict[int, str]:
+        if not self.result:
+            return {}
+
+        event = self.result.events[self.event_index]
+        visible = dict(event.active_vehicles)
+        for past_event in self.result.events[: self.event_index + 1]:
+            if past_event.stage == "rejected":
+                visible[past_event.vehicle_id] = "rejected"
+        return visible
 
     def _draw_static_scene(self):
         self.canvas.delete("all")
@@ -190,18 +203,18 @@ class DriveThruApp(tk.Tk):
         self.canvas.create_line(50, 307, width - 50, 307, fill="#f8fafc", dash=(10, 8), width=3)
 
         stations = [
-            ("Arrival", 100, 170, "#dbeafe"),
-            ("Order", 350, 120, "#dcfce7"),
-            ("Payment", 600, 120, "#fef3c7"),
-            ("Pickup", 850, 120, "#fee2e2"),
-            ("Exit", 960, 170, "#e2e8f0"),
+            ("Arrival", 100, 205, "#dbeafe"),
+            ("Order", 350, 155, "#dcfce7"),
+            ("Payment", 600, 155, "#fef3c7"),
+            ("Pickup", 820, 155, "#fee2e2"),
+            ("Exit", 960, 205, "#e2e8f0"),
         ]
         for label, x, y, color in stations:
             self.canvas.create_rectangle(x - 56, y - 34, x + 56, y + 34, fill=color, outline="#334155", width=2)
             self.canvas.create_text(x, y, text=label, font=("Segoe UI", 11, "bold"), fill="#0f172a")
 
         self.canvas.create_text(100, 385, text="FIFO Queue", font=("Segoe UI", 10, "bold"), fill="#334155")
-        self.canvas.create_text(960, 440, text="Full Lane / Lost Sale", font=("Segoe UI", 10, "bold"), fill="#7f1d1d")
+        self.canvas.create_text(960, 485, text="Full Lane / Lost Sale", font=("Segoe UI", 10, "bold"), fill="#7f1d1d")
 
     def _draw_vehicles(self, active_vehicles: dict[int, str]):
         occupied: dict[str, int] = {}
@@ -210,14 +223,31 @@ class DriveThruApp(tk.Tk):
             offset = occupied.get(stage, 0)
             occupied[stage] = offset + 1
 
-            x = base_x - min(offset, 8) * 26 if "waiting" in stage or stage == "queue" else base_x + (offset % 3) * 24
-            y = base_y + (offset // 9) * 28
+            if stage == "rejected":
+                x = base_x - (offset % 8) * 28
+                y = base_y + (offset // 8) * 28
+            elif "waiting" in stage or stage == "queue":
+                x = base_x - min(offset, 8) * 26
+                y = base_y + (offset // 9) * 28
+            else:
+                x = base_x + (offset % 3) * 24
+                y = base_y + (offset // 9) * 28
             color = CAR_COLORS.get(stage, "#475569")
 
             self.canvas.create_rectangle(x - 18, y - 10, x + 18, y + 10, fill=color, outline="#0f172a", width=1)
             self.canvas.create_oval(x - 14, y + 7, x - 6, y + 15, fill="#0f172a", outline="")
             self.canvas.create_oval(x + 6, y + 7, x + 14, y + 15, fill="#0f172a", outline="")
             self.canvas.create_text(x, y - 22, text=str(vehicle_id), font=("Segoe UI", 8), fill="#0f172a")
+
+    def _draw_lost_sale_count(self, visible_vehicles: dict[int, str]):
+        lost_count = sum(1 for stage in visible_vehicles.values() if stage == "rejected")
+        self.canvas.create_text(
+            960,
+            505,
+            text=f"Lost vehicles: {lost_count}",
+            font=("Segoe UI", 9, "bold"),
+            fill="#7f1d1d",
+        )
 
     def _draw_clock(self, time_value: float, queue_length: int):
         hours = int(time_value // 60)
