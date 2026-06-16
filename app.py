@@ -344,51 +344,57 @@ class DriveThruApp(tk.Tk):
         issues: list[str] = []
         suggestions: list[str] = []
 
+        # CRITICAL ISSUES (Lead to NEEDS IMPROVEMENT)
         if rejected > 0:
             issues.append(
-                f"{rejected} vehicle(s) could not enter because the lane reached its capacity."
+                f"{rejected} vehicle(s) rejected due to lane capacity exceeded."
             )
             suggestions.append(
-                "Increase lane capacity, add a waiting bay, or reduce arrival pressure during peak hours."
+                "Increase lane capacity or reduce peak hour arrivals to prevent lost sales."
             )
 
         if avg_wait > 5:
-            issues.append(f"Average queue waiting time is high at {avg_wait:.2f} minutes.")
-        elif avg_wait > 3:
-            issues.append(f"Average queue waiting time is moderate at {avg_wait:.2f} minutes.")
+            issues.append(f"Average queue wait is too high: {avg_wait:.2f} minutes (target: < 3 min).")
+            suggestions.append(
+                f"Add more stations at the bottleneck ({bottleneck}) or reduce arrival rate during peak."
+            )
 
         if avg_system > 9:
-            issues.append(f"Customers spend too long in the system at {avg_system:.2f} minutes on average.")
-        elif avg_system > 6:
-            issues.append(f"Total system time is acceptable but can still be improved at {avg_system:.2f} minutes.")
+            issues.append(f"Total system time too long: {avg_system:.2f} minutes (target: < 6 min).")
 
+        # WARNINGS (Lead to ACCEPTABLE SCENARIO)
+        if avg_wait > 3 and avg_wait <= 5:
+            issues.append(f"Average queue wait is moderate: {avg_wait:.2f} minutes. Can be improved.")
+
+        if avg_system > 6 and avg_system <= 9:
+            issues.append(f"System time is acceptable but can improve: {avg_system:.2f} minutes.")
+
+        # PERFORMANCE INDICATOR (Not an issue, just info)
         if max_util > 90:
-            issues.append(f"The {max_util_stage} resource is overworked at {max_util:.1f}% utilization.")
+            issues.append(f"The {max_util_stage} stage is heavily loaded at {max_util:.1f}% utilization.")
             suggestions.append(self._resource_suggestion(max_util_stage))
-        elif max_util < 35 and served > 0:
-            issues.append(f"Resource utilization is low; the busiest stage is only {max_util:.1f}% utilized.")
-            suggestions.append("The current setup may be overstaffed for this demand level.")
 
         if bottleneck != "none" and stage_waits.get(bottleneck, 0.0) > 1:
-            suggestions.append(self._resource_suggestion(bottleneck))
+            suggestions.append(f"The {bottleneck.title()} stage is the bottleneck. Consider optimizing it.")
 
-        if not issues:
+        # DETERMINE VERDICT based on CUSTOMER EXPERIENCE metrics only
+        if rejected == 0 and avg_wait <= 3 and avg_system <= 6:
             verdict = "GOOD SCENARIO"
             conclusion = (
-                "The drive-thru setup is performing well. Waiting time is low, vehicles are being served, "
-                "and no major congestion is shown by this run."
+                "Excellent performance! No rejections, minimal wait times, and customers move through quickly. "
+                "This is an optimal configuration for customer satisfaction."
             )
         elif rejected == 0 and avg_wait <= 5 and avg_system <= 9:
             verdict = "ACCEPTABLE SCENARIO"
             conclusion = (
-                "The drive-thru can handle the demand, but there is room to improve customer experience "
-                "and reduce pressure on the busiest service stage."
+                "The system handles demand adequately with manageable wait times and no lost sales. "
+                "Consider optimizations to reduce waiting and improve customer experience."
             )
         else:
             verdict = "NEEDS IMPROVEMENT"
             conclusion = (
-                "This scenario may hurt real-world drive-thru performance because customers wait too long "
-                "or the lane becomes congested."
+                "Performance is below acceptable standards. Customers face long waits, the lane reaches capacity, "
+                "or service time is excessive. Changes are needed to maintain customer satisfaction."
             )
 
         if not suggestions:
